@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche de Paie - MIG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        :root {
+            --brand-red: #D22027;
+            --brand-red-dark: #A8141A;
+        }
+
+        /* Mode Aperçu / Impression */
+        .preview-mode input, .preview-mode select {
+            border-color: transparent !important;
+            background-color: transparent !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            pointer-events: none;
+            appearance: none;
+            -webkit-appearance: none;
+            box-shadow: none !important;
+        }
+
+        .preview-mode input[type="number"]::-webkit-inner-spin-button,
+        .preview-mode input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .preview-mode .checkbox-cotisation {
+            display: none !important;
+        }
+
+        /* Impression A4 */
+        @media print {
+            .no-print { display: none !important; }
+            body {
+                background-color: #ffffff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .print-container {
+                box-shadow: none !important;
+                border: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+            }
+            input, select {
+                border-color: transparent !important;
+                background-color: transparent !important;
+                padding: 0 !important;
+            }
+            .checkbox-cotisation {
+                display: none !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 10mm 12mm;
+            }
+        }
+    </style>
+</head>
+<body class="p-3 md:p-8 min-h-screen">
+
+    <!-- Control Bar -->
+    <div class="max-w-4xl mx-auto mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 no-print flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-50 text-[#D22027] flex items-center justify-center font-bold text-lg border border-red-100">
+                📄
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-slate-900 leading-tight">Générateur de Fiche de Paie</h1>
+                <p class="text-xs text-slate-500">MIG - Société & Prestations</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button id="toggleModeBtn" onclick="toggleEditMode()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span id="modeText">Basculer en Mode Aperçu</span>
+            </button>
+            <button onclick="window.print()" class="px-5 py-2 rounded-xl text-xs font-bold bg-[#D22027] hover:bg-[#A8141A] text-white shadow-lg shadow-red-500/20 transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Imprimer / Télécharger PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Printable Sheet -->
+    <div id="payrollSheet" class="print-container max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6 md:p-10 relative overflow-hidden">
+
+
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-slate-200 gap-6">
+            <!-- Brand & Company Info -->
+            <div class="flex items-center gap-4">
+                <div class="w-24 h-24 rounded-2xl overflow-hidden shadow-md shadow-red-500/20 shrink-0">
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwCAIAAACxN37FAAAyCUlEQVR4nO2dd3wc1bn3n+ec2a7VFknuvWNaqHEwzYRmG4xtwJjeIeQCgZubT/LetJuEkBtyc4EkQIAbICR0Y8COwcYBm15MM5hiGxs3XFW2t5lznvePWcmytCutdnZlaXK+6GNUVjOj3d8+85ynHfxwBCgUtoHt7wtQKCqJErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVihBK2yFErTCVmj7+wIqATJkJb4zqeh3CUCKyl1TcZABVuI4UlbiKHaj/wsagXJSpCRgEbli4S8R9/0mAvN0enAVoKwkCUWvtmSYqzeutt/RzwXNGKXJc/DkwCmzZDYDQpIwyNDJMMjQwTBIGEQEUgIRkQRJQNL8hKQEkiQJpAAiqecyq1eRrldXJYiusaOY00V7v5H/f/sH7ftVpwtCBCEyX60DQyhNdwA/HLG/L8ECyLiIi3FP/qP2pJkWD5XNZtadONHYtAVdDKgKd3NEkIQan7Dkfff4A0FKKOYmFZB4ux8RATIZj352/DijsRkdCGTN1NuL/myhGRNJ4T3yYP/xp5GhdzRs+9BOIx3kYt76EXI5nQXCILZYdwa6gCQhY6hpQFTA9JYOMuVDF6QfCxoRSYeGS29ATSNhIC/3b0EwcjnBNB4MkwS0orMuIPPNI0k3wPSCSl3IdjgOASIJA4iUv9GZfitoZDIt3ROHBWfNByJk3MrBMuk0eHw8GIZqxzkISApAzH+UByJISdXwi/o//TUOjYzJFNWdfw33+fMSKRchhJ7LISKva6jgFXaCAIAISIi2L8s/lpTKdS5I/xQ0oswJx9DauvlXAVHJQejCZLNZSRIQWd2ASl1gYRDbot1W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" alt="Logo MIG" class="w-full h-full object-cover block" />
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-3xl font-black text-slate-900 tracking-tight">MIG Consulting</h2>
+                    </div>
+                    <p class="text-xs font-bold text-[#D22027] tracking-wider uppercase mt-0.5">Société & Prestations</p>
+                    <!-- <div class="mt-2 text-[11px] text-slate-600 leading-snug space-y-0.5">
+                        <p><span class="font-semibold text-slate-800">TEL :</span> +261 34 87 705 78</p>
+                        <p><span class="font-semibold text-slate-800">NIF :</span> 3013873048 &nbsp;|&nbsp; <span class="font-semibold text-slate-800">STAT :</span> 70209 11 2023 0 08506</p>
+                    </div>-->
+                </div>
+            </div>
+
+            <!-- Title & Period Block -->
+            <div class="sm:text-right w-full sm:w-auto bg-slate-50 sm:bg-transparent p-4 sm:p-0 rounded-xl border sm:border-none border-slate-200">
+                <div class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase">
+                    Fiche de Paie
+                </div>
+                <div class="mt-1 flex items-center sm:justify-end gap-2 text-xs font-semibold text-slate-700">
+                    <span>Période :</span>
+                    <input type="text" id="inputPeriod" value="Du 01/09/2026 au 30/09/2026" oninput="updateCalculations()" class="bg-white sm:bg-slate-100/80 px-2 py-1 rounded border border-slate-300 font-bold text-slate-800 text-left sm:text-right focus:outline-none focus:border-red-500 transition w-64" />
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Bulletin de paie à conserver sans limitation de durée</p>
+            </div>
+        </div>
+
+        <!-- Employee & Employer Information -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 my-6">
+            <!-- Employer Card -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#D22027] mb-2 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1"/></svg>
+                    Employeur
+                </div>
+                <div class="text-xs space-y-1 text-slate-700">
+                    <p class="font-bold text-slate-900 text-sm">MIG - Société & Prestations</p>
+                    <p>Téléphone : +261 34 87 705 78</p>
+                    <p>NIF : 3013873048</p>
+                    <p>STAT : 70209 11 2023 0 08506</p>
+                    <p>Secteur : Services & Développement Numérique</p>
+                </div>
+            </div>
+
+            <!-- Employee Card -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#D22027] mb-2 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    Salarié(e)
+                </div>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 text-xs">
+                    <div class="col-span-2">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Nom & Prénoms</span>
+                        <input type="text" id="empName" value="Miora Irina Annasoa RAKOTOMALALA" class="w-full font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 focus:outline-none focus:border-red-500" />
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Matricule</span>
+                        <input type="text" id="empMatricule" value="MIG-2026-024" class="w-full font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 focus:outline-none focus:border-red-500" />
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Base contractuelle</span>
+                        <input type="text" id="empContractBase" value="6h/jour (132h/mois)" class="w-full font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 focus:outline-none focus:border-red-500" />
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Fonction / Poste</span>
+                        <input type="text" id="empJob" value="Collaboratrice / Prestataire" class="w-full font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 focus:outline-none focus:border-red-500" />
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Date d'embauche</span>
+                        <input type="text" id="empHireDate" value="01/09/2026" class="w-full font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 focus:outline-none focus:border-red-500" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Salary Details Table -->
+        <div class="my-6 overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900 text-white uppercase text-[10px] tracking-wider">
+                        <th class="py-2.5 px-3 rounded-l-lg">Désignation / Rubrique</th>
+                        <th class="py-2.5 px-3 text-center">Nombre / Heures</th>
+                        <th class="py-2.5 px-3 text-right">Taux Unitaire (Ar)</th>
+                        <th class="py-2.5 px-3 text-center">Majoration</th>
+                        <th class="py-2.5 px-3 text-right rounded-r-lg">Montant Total (Ar)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-slate-800">
+
+                    <!-- Salaire de Base -->
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 px-3 font-bold text-slate-900">
+                            Salaire de Base (132h)
+                            <span class="block text-[10px] font-normal text-slate-400">Forfait mensuel convenu (6h / jour)</span>
+                        </td>
+                        <td class="py-3 px-3 text-center font-medium">
+                            <input type="number" id="baseHours" value="132" step="1" oninput="updateCalculations()" class="w-20 text-center bg-slate-50 p-1 rounded border border-slate-300 focus:outline-none focus:border-red-500 font-semibold" />
+                            <span class="text-[10px] text-slate-400">h</span>
+                        </td>
+                        <td class="py-3 px-3 text-right font-medium">
+                            <input type="number" id="unitRate" value="8333.33" step="0.01" oninput="updateCalculations()" class="w-28 text-right bg-slate-50 p-1 rounded border border-slate-300 focus:outline-none focus:border-red-500 font-semibold" />
+                        </td>
+                        <td class="py-3 px-3 text-center text-slate-400">-</td>
+                        <td class="py-3 px-3 text-right font-bold text-slate-900 text-sm" id="baseSalaryTotal">
+                            1 100 000 Ar
+                        </td>
+                    </tr>
+
+                    <!-- Heures Supplémentaires (HS 15%) -->
+                    <tr class="hover:bg-slate-50/50 bg-red-50/20">
+                        <td class="py-3 px-3 font-bold text-slate-900">
+                            Heures Supplémentaires (HS 15%)
+                            <span class="block text-[10px] font-normal text-slate-500">Taux majoré (+15%) = 9 583,33 Ar/h</span>
+                        </td>
+                        <td class="py-3 px-3 text-center font-medium">
+                            <input type="number" id="hs15Hours" value="6" step="0.5" oninput="updateCalculations()" class="w-20 text-center bg-red-50 text-red-700 p-1 rounded border border-red-200 focus:outline-none focus:border-red-500 font-bold" />
+                            <span class="text-[10px] text-slate-400">h</span>
+                        </td>
+                        <td class="py-3 px-3 text-right font-medium text-slate-600" id="hs15UnitRateDisplay">
+                            9 583,33 Ar
+                        </td>
+                        <td class="py-3 px-3 text-center font-bold text-[#D22027]">
+                            +15 %
+                        </td>
+                        <td class="py-3 px-3 text-right font-bold text-slate-900 text-sm" id="hs15Total">
+                            57 500 Ar
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Totals & Net Pay Box -->
+        <div class="my-6 pt-4 border-t-2 border-slate-900 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <!-- Details Breakdown -->
+            <div class="space-y-1 text-xs text-slate-600">
+                <div class="flex justify-between py-1 border-b border-slate-100">
+                    <span>Total Salaire Brut :</span>
+                    <span class="font-bold text-slate-900" id="totalBrutDisplay">1 157 500 Ar</span>
+                </div>
+                <div class="flex justify-between py-1">
+                    <span>Mode de Règlement :</span>
+                    <select id="payMethod" class="bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-800 focus:outline-none">
+                        <option value="Virement Bancaire" selected>Virement Bancaire</option>
+                        <option value="Espèces">Espèces / Cash</option>
+                        <option value="Chèque">Chèque</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Main NET TO PAY Banner -->
+            <div class="bg-[#D22027] text-white p-5 rounded-2xl shadow-lg shadow-red-500/20 text-right">
+                <span class="text-xs uppercase font-extrabold tracking-widest text-red-100 block mb-1">
+                    NET À PAYER (AR)
+                </span>
+                <div class="text-3xl md:text-4xl font-black tracking-tight" id="netToPayDisplay">
+                    1 157 500 Ar
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer / Signatures Area -->
+        <div class="mt-8 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-8">
+
+            <!-- Employee Signature Space -->
+            <div class="text-center sm:text-left flex flex-col justify-between h-40">
+                <div>
+                    <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">Signature du Salarié</p>
+                    <p class="text-[10px] text-slate-400">Précédée de la mention "Lu et approuvé"</p>
+                </div>
+                <div class="border-b border-dashed border-slate-300 w-3/4 mx-auto sm:mx-0 pb-2 text-[10px] text-slate-300 italic">
+                    Date & Emargement
+                </div>
+            </div>
+
+            <!-- Employer Signature Section -->
+            <div class="text-center sm:text-right flex flex-col items-center sm:items-end justify-between h-40 relative">
+                <div>
+                    <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">Pour la Direction - MIG</p>
+                    <p class="text-[10px] text-slate-400">Signature autorisée</p>
+                </div>
+
+                <div class="border-b border-dashed border-slate-300 w-3/4 sm:w-full pb-2 text-[10px] text-slate-300 italic sm:text-right">
+                    Signature
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer legal notice -->
+        <div class="mt-6 pt-4 border-t border-slate-100 text-center text-[10px] text-slate-400">
+            MIG - Société & Prestations • NIF 3013873048 • STAT 70209 11 2023 0 08506 • Document édité le <span id="currentDate"></span>
+        </div>
+
+    </div>
+
+    <script>
+        function formatMoney(amount) {
+            return Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " Ar";
+        }
+
+        function formatDecimalMoney(amount) {
+            const rounded = Math.round(amount * 100) / 100;
+            const parts = rounded.toFixed(2).split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+            return parts.join(',') + " Ar";
+        }
+
+        function updateCalculations() {
+            const baseHours = parseFloat(document.getElementById('baseHours').value) || 0;
+            const unitRate = parseFloat(document.getElementById('unitRate').value) || 0;
+            const hs15Hours = parseFloat(document.getElementById('hs15Hours').value) || 0;
+
+            const baseSalary = Math.round(baseHours * unitRate);
+            const hs15UnitRate = unitRate * 1.15;
+            const hs15Total = Math.round(hs15Hours * hs15UnitRate);
+            const totalBrut = baseSalary + hs15Total;
+
+            document.getElementById('baseSalaryTotal').textContent = formatMoney(baseSalary);
+            document.getElementById('hs15UnitRateDisplay').textContent = formatDecimalMoney(hs15UnitRate);
+            document.getElementById('hs15Total').textContent = formatMoney(hs15Total);
+            document.getElementById('totalBrutDisplay').textContent = formatMoney(totalBrut);
+            document.getElementById('netToPayDisplay').textContent = formatMoney(totalBrut);
+        }
+
+        function toggleEditMode() {
+            const sheet = document.getElementById('payrollSheet');
+            const btnText = document.getElementById('modeText');
+            sheet.classList.toggle('preview-mode');
+            btnText.textContent = sheet.classList.contains('preview-mode') ? "Passer en Mode Édition" : "Basculer en Mode Aperçu";
+        }
+
+        window.onload = function() {
+            const today = new Date();
+            const dateStr = today.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            document.getElementById('currentDate').textContent = dateStr;
+            updateCalculations();
+        };
+    </script>
+</body>
+</html>
